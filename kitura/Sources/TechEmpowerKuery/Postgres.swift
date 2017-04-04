@@ -59,15 +59,15 @@ func releaseConnection(connection: Connection) {
 func generateConnection() -> Connection? {
     var dbConn: Connection
     switch db {
-        case "sqlite":
-            dbConn = SQLiteConnection(filename: "myDB.db")
-        default:
-            // use postgres db by defualt
-            dbConn = PostgreSQLConnection(host: dbHost, port: dbPort,
-                                          options: [.databaseName(dbName),
-                                            .userName(dbUser), .password(dbPass) ])
+    case "sqlite":
+        dbConn = SQLiteConnection(filename: "myDB.db")
+    default:
+        // use postgres db by defualt
+        dbConn = PostgreSQLConnection(host: dbHost, port: dbPort,
+                                      options: [.databaseName(dbName),
+                                                .userName(dbUser), .password(dbPass) ])
     }
-
+    
     
     dbConn.connect() { error in
         if let error = error {
@@ -82,11 +82,11 @@ let dbConnPool = ConnectionPool(options: dbConnPoolOpts, connectionGenerator: ge
 
 // Return a random number within the range of rows in the database
 func randomNumberGenerator(_ maxVal: Int) -> Int {
-#if os(Linux)
-    return Int(random() % maxVal) + 1
-#else
-    return Int(arc4random_uniform(UInt32(maxVal))) + 1
-#endif
+    #if os(Linux)
+        return Int(random() % maxVal) + 1
+    #else
+        return Int(arc4random_uniform(UInt32(maxVal))) + 1
+    #endif
 }
 
 // Get a random row (range 1 to 10,000) from DB: id(int),randomNumber(int)
@@ -97,50 +97,46 @@ func getRandomRow() -> ([String:Int]?, AppError?) {
     var errRes: AppError? = nil
     // Get a dedicated connection object for this transaction from the pool
     guard let dbConn = dbConnPool.getConnection() else {
-      errRes = AppError.OtherError("Timed out waiting for a DB connection from the pool")
-      return (resultDict, errRes)
+        errRes = AppError.OtherError("Timed out waiting for a DB connection from the pool")
+        return (resultDict, errRes)
     }
     // Ensure that when we complete, the connection is returned to the pool
     defer {
-      releaseConnection(connection: dbConn)
+        releaseConnection(connection: dbConn)
     }
     let rnd = randomNumberGenerator(dbRows)
- 
+    
     let query = Select(world.randomNumber, from: world)
         .where(world.id == rnd)
-
+    
     dbConn.execute(query: query) { result in
         if let resultSet = result.asResultSet {
             guard result.success else {
                 errRes = AppError.DBKueryError("Query failed - status \(String(describing: result.asError))")
                 return
             }
-
+            
             for row in resultSet.rows {
                 for value in row {
-                    guard let randomStr = value as? String else {
-                        errRes = AppError.DBKueryError("Error: could not get field as a String")
+                    guard let randomNumber = value as? Int else {
+                        errRes = AppError.DBKueryError("Error: could not get field as an Int")
                         return
                     }
                     
-            if let randomNumber = Int(randomStr) {
-                resultDict = ["id":rnd, "randomNumber":randomNumber]
-            } else {
-                errRes = AppError.DataFormatError("Error: could not parse result as a number: \(randomStr)")
-            }
+                    resultDict = ["id":rnd, "randomNumber":randomNumber]
                 }
-
+                
+            }
         }
-        }
-     }
-        return (resultDict, errRes)
+    }
+    return (resultDict, errRes)
 }
 
 // Updates a row of World to a new value.
 func updateRow(id: Int) throws  -> AppError? {
     // Get a dedicated connection object for this transaction from the pool
     guard let dbConn = dbConnPool.getConnection() else {
-      throw AppError.OtherError("Timed out waiting for a DB connection from the pool")
+        throw AppError.OtherError("Timed out waiting for a DB connection from the pool")
     }
     // Ensure that when we complete, the connection is returned to the pool
     defer {
@@ -153,12 +149,12 @@ func updateRow(id: Int) throws  -> AppError? {
     dbConn.execute(query: query) { result in
         if result.asResultSet != nil {
             guard result.success else {
-                    errRes = AppError.DBKueryError("Query failed - status \(String(describing: result.asError))")
-                    return
+                errRes = AppError.DBKueryError("Query failed - status \(String(describing: result.asError))")
+                return
             }
-
+            
         }
-       
+        
     }
     return errRes
 }
